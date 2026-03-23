@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-validate:
+    name: Lint & Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate repository structure
+        run: |
+          echo "🔍 Validating repository structure..."
+          echo ""
+          echo "Checking required files..."
+          for file in README.md LICENSE SECURITY.md CONTRIBUTING.md .gitignore; do
+            if [ -f "$file" ]; then
+              echo "✅ $file exists"
+            else
+              echo "❌ $file is missing!"
+              exit 1
+            fi
+          done
+          echo ""
+          echo "Checking directories..."
+          for dir in analytics; do
+            if [ -d "$dir" ]; then
+              echo "✅ $dir/ directory exists"
+            else
+              echo "❌ $dir/ directory is missing!"
+              exit 1
+            fi
+          done
+          echo ""
+          echo "✅ All checks passed!"
+
+      - name: Lint Markdown files
+        uses: DavidAnson/markdownlint-cli2-action@v19
+        with:
+          globs: '**/*.md'
+          config: |
+            {
+              "default": true,
+              "MD013": false,
+              "MD033": false,
+              "MD041": false
+            }
+        continue-on-error: true
+
+      - name: Security - Check for sensitive files
+        run: |
+          echo "🔒 Checking for sensitive files..."
+          SENSITIVE_PATTERNS=(".env" ".env.local" "*.pem" "*.key" "id_rsa" "credentials.json")
+          FOUND=0
+          for pattern in "${SENSITIVE_PATTERNS[@]}"; do
+            if compgen -G "$pattern" > /dev/null 2>&1; then
+              echo "⚠️  Found sensitive file matching: $pattern"
+              FOUND=1
+            fi
+          done
+          if [ $FOUND -eq 0 ]; then
+            echo "✅ No sensitive files detected"
+          else
+            echo "❌ Sensitive files found! Please remove them."
+            exit 1
+          fi
+
+      - name: Summary
+        run: |
+          echo "🎉 CI pipeline completed successfully!"
+          echo "Repository: Joenasriani/JOECLaude"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
